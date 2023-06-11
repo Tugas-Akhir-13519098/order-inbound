@@ -1,51 +1,64 @@
 package main
 
 import (
-	"log"
-    "net/http"
-    "github.com/segmentio/kafka-go"
-    "encoding/json"
+	"fmt"
+	"net/http"
+	"order-inbound/config"
+	"order-inbound/src/controller"
+	"order-inbound/src/repository"
+	"order-inbound/src/service"
+
+	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/segmentio/kafka-go"
 )
 
-type Message struct {
-    Key   string `json:"key"`
-    Value string `json:"value"`
-}
-
-func handlePublishMessage(w http.ResponseWriter, r *http.Request) {
+func NewKafkaWriter(cfg *config.Config) *kafka.Writer {
 	config := kafka.WriterConfig{
-		Brokers: []string{"localhost:9092"},
-		Topic:   "test",
+		Brokers: []string{fmt.Sprintf("%s:%s", cfg.KafkaHost, cfg.KafkaPort)},
+		Topic:   cfg.KafkaOrderTopic,
 	}
 	writer := kafka.NewWriter(config)
 
-    // Parse the JSON payload from the request body
-    var message Message
-    err := json.NewDecoder(r.Body).Decode(&message)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    defer r.Body.Close()
+	return writer
+}
 
-    // Publish the message to Kafka
-    err = writer.WriteMessages(r.Context(), kafka.Message{
-        Key:   []byte(message.Key),
-        Value: []byte(message.Value),
-    })
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+func NewRetryClient() *retryablehttp.Client {
+	retryClient := retryablehttp.NewClient()
+	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
+		resp.Body.Close()
+		return resp, err
+	}
 
-    // Return a success response to the client
-    w.WriteHeader(http.StatusOK)
-    w.Write([]byte("Message published to Kafka"))
+	return retryClient
 }
 
 func main() {
-	log.Printf("Application is running")
-    
-	http.HandleFunc("/publish", handlePublishMessage)
-    http.ListenAndServe(":8080", nil)
+	cfg := config.Get()
+
+	// kafka
+	writer := NewKafkaWriter(&cfg)
+
+	// retryable http
+	retryClient := retryablehttp.NewClient()
+
+	orderRepository := repository.NewOrderRepository(writer, retryClient)
+
+	orderService := service.NewOrderService(orderRepository)
+
+	orderController := controller.NewOrderController(orderService)
+
+	router := gin.Default()
+
+	v1 := router.Group("api/v1")
+	{
+		// product route
+		orderRoute := v1.Group("/order")
+
+		orderRoute.POST("/tokopedia/notif/", orderController.ReceiveTokopediaOrderNotif)
+		orderRoute.POST("/tokopedia/status/", orderController.ReceiveTokopediaOrderChangeStatus)
+		orderRoute.POST("/shopee/", orderController.ReceiveShopeeOrderNotif)
+	}
+
+	router.Run(fmt.Sprintf("%s:%d", cfg.RESTHost, cfg.RESTPort))
 }
