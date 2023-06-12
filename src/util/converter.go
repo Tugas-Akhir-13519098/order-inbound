@@ -25,7 +25,6 @@ func ConvertTokopediaOrderNotifToKafkaOrderMessage(order model.TokopediaOrderNot
 		Method:             model.CREATE,
 		Products:           products,
 		TokopediaOrderID:   order.OrderID,
-		TokopediaShopID:    order.ShopID,
 		TotalPrice:         totalPrice,
 		CustomerName:       order.Recipient.Name,
 		CustomerPhone:      order.Recipient.Phone,
@@ -35,7 +34,7 @@ func ConvertTokopediaOrderNotifToKafkaOrderMessage(order model.TokopediaOrderNot
 		CustomerProvince:   order.Recipient.Address.Province,
 		CustomerCountry:    order.Recipient.Address.Country,
 		CustomerPostalCode: order.Recipient.Address.PostalCode,
-		OrderStatus:        model.ACCEPTED,
+		OrderStatus:        model.RECEIVED,
 	}
 
 	return kafkaOrderMessage
@@ -46,7 +45,6 @@ func ConvertTokopediaOrderChangeStatusToKafkaOrderMessage(order model.TokopediaO
 	kafkaOrderMessage := model.KafkaOrderMessage{
 		Method:           model.UPDATE,
 		TokopediaOrderID: order.OrderID,
-		TokopediaShopID:  order.ShopID,
 		OrderStatus:      orderStatus,
 	}
 
@@ -73,9 +71,9 @@ func ConvertResponseToShopeeOrderDetail(body io.ReadCloser) (model.ShopeeOrderDe
 	return shopeeOrderDetail, err
 }
 
-func ConvertShopeeOrderDetailToKafkaOrderMessage(order model.ShopeeOrderDetail, shopID int) model.KafkaOrderMessage {
+func ConvertShopeeOrderDetailToKafkaOrderMessage(status string, order model.ShopeeOrderDetail) model.KafkaOrderMessage {
 	method := model.CREATE
-	orderStatus := ConvertShopeeOrderStatus(order.Response.OrderList[0].OrderStatus)
+	orderStatus := ConvertShopeeOrderStatus(status)
 	if orderStatus != model.RECEIVED {
 		method = model.UPDATE
 	}
@@ -95,7 +93,6 @@ func ConvertShopeeOrderDetailToKafkaOrderMessage(order model.ShopeeOrderDetail, 
 		Method:             method,
 		Products:           products,
 		ShopeeOrderID:      order.Response.OrderList[0].OrderSN,
-		ShopeeShopID:       shopID,
 		TotalPrice:         order.Response.OrderList[0].TotalAmount,
 		CustomerName:       order.Response.OrderList[0].RecipientAddress.Name,
 		CustomerPhone:      order.Response.OrderList[0].RecipientAddress.Phone,

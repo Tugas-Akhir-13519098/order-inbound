@@ -45,5 +45,5 @@ type ShopeeItem struct {
 	ItemID                 int     `json:"item_id"`
 	ItemName               string  `json:"item_name"`
 	ModelQuantityPurchased int     `json:"model_quantity_purchased"`
-	ModelOriginalPrice     float32 `json:"model_quantity_price"`
+	ModelOriginalPrice     float32 `json:"model_original_price"`
 }

@@ -43,7 +43,7 @@ func (o *orderService) ReceiveShopeeOrderNotif(order *model.ShopeeOrderNotif) er
 		return err
 	}
 
-	kafkaOrderMessage := util.ConvertShopeeOrderDetailToKafkaOrderMessage(*shopeeOrderDetail, order.ShopID)
+	kafkaOrderMessage := util.ConvertShopeeOrderDetailToKafkaOrderMessage(order.Data.Status, *shopeeOrderDetail)
 	err = o.orderRepository.PublishToKafka(order.Data.Ordersn, &kafkaOrderMessage)
 
 	return err
