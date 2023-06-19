@@ -25,6 +25,7 @@ func ConvertTokopediaOrderNotifToKafkaOrderMessage(order model.TokopediaOrderNot
 		Method:             model.CREATE,
 		Products:           products,
 		TokopediaOrderID:   order.OrderID,
+		TokopediaShopID:    order.ShopID,
 		TotalPrice:         totalPrice,
 		CustomerName:       order.Recipient.Name,
 		CustomerPhone:      order.Recipient.Phone,
@@ -71,7 +72,7 @@ func ConvertResponseToShopeeOrderDetail(body io.ReadCloser) (model.ShopeeOrderDe
 	return shopeeOrderDetail, err
 }
 
-func ConvertShopeeOrderDetailToKafkaOrderMessage(status string, order model.ShopeeOrderDetail) model.KafkaOrderMessage {
+func ConvertShopeeOrderDetailToKafkaOrderMessage(status string, shopID int, order model.ShopeeOrderDetail) model.KafkaOrderMessage {
 	method := model.CREATE
 	orderStatus := ConvertShopeeOrderStatus(status)
 	if orderStatus != model.RECEIVED {
@@ -93,6 +94,7 @@ func ConvertShopeeOrderDetailToKafkaOrderMessage(status string, order model.Shop
 		Method:             method,
 		Products:           products,
 		ShopeeOrderID:      order.Response.OrderList[0].OrderSN,
+		ShopeeShopID:       shopID,
 		TotalPrice:         order.Response.OrderList[0].TotalAmount,
 		CustomerName:       order.Response.OrderList[0].RecipientAddress.Name,
 		CustomerPhone:      order.Response.OrderList[0].RecipientAddress.Phone,
